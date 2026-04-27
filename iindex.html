@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Nivel de Esfera | Plataforma Interactiva</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #3e2c1c;
+            --surface-light: #5c3d28;
+            --surface-dark: #2a1a0e;
+            --gold: #d4a574;
+            --text: #e0d5c8;
+            --accent: #e8833a;
+            --danger: #c0392b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0d0d1a;
+            overflow: hidden;
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            height: 100dvh;
+            width: 100vw;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Overlay de inicio / permiso */
+        #permission-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 10, 26, 0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        #permission-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        #permission-overlay .card {
+            background: linear-gradient(145deg, #1e1e36, #16162a);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: clamp(24px, 5vw, 40px);
+            text-align: center;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+        }
+        #permission-overlay .icon {
+            font-size: clamp(48px, 10vw, 72px);
+            margin-bottom: 12px;
+            display: block;
+            animation: float 2.5s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-14px);
+            }
+        }
+        #permission-overlay h2 {
+            color: #e0d5c8;
+            font-size: clamp(1.2rem, 3vw, 1.6rem);
+            margin-bottom: 8px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        #permission-overlay p {
+            color: #a09888;
+            font-size: clamp(0.85rem, 2vw, 0.95rem);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        #permission-overlay button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 14px 36px;
+            font-size: 1.05rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            letter-spacing: 0.4px;
+            transition: all 0.25s;
+            box-shadow: 0 8px 24px rgba(232, 131, 58, 0.35);
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+        #permission-overlay button:hover {
+            background: #f0904a;
+            box-shadow: 0 12px 32px rgba(232, 131, 58, 0.5);
+            transform: translateY(-2px);
+        }
+        #permission-overlay button:active {
+            transform: scale(0.95);
+            box-shadow: 0 4px 12px rgba(232, 131, 58, 0.3);
+            transition: all 0.1s;
+        }
+        .desktop-note {
+            display: none;
+            color: #888;
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .desktop-note {
+                display: block;
+            }
+        }
+
+        /* HUD */
+        #hud {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+        #hud>* {
+            pointer-events: auto;
+        }
+        #calibrate-btn {
+            background: rgba(30, 30, 50, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ccc;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        #calibrate-btn:hover {
+            background: rgba(50, 50, 70, 0.9);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        #calibrate-btn:active {
+            transform: scale(0.93);
+            transition: all 0.08s;
+        }
+        #angle-display {
+            background: rgba(30, 30, 50, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 6px 12px;
+            color: #bbb;
+            font-size: 0.7rem;
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            text-align: center;
+            font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+            white-space: nowrap;
+        }
+        @media (max-width: 480px) {
+            #hud {
+                top: 8px;
+                right: 8px;
+                gap: 4px;
+            }
+            #calibrate-btn {
+                padding: 6px 12px;
+                font-size: 0.7rem;
+            }
+            #angle-display {
+                font-size: 0.65rem;
+                padding: 4px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Overlay de permiso / inicio -->
+    <div id="permission-overlay">
+        <div class="card">
+            <span class="icon">🔮</span>
+            <h2>Nivel de Esfera</h2>
+            <p>Inclina tu dispositivo para mover la esfera sobre la plataforma. Usa el sensor de gravedad.</p>
+            <button id="start-btn">✨ Iniciar</button>
+            <p class="desktop-note">💻 En escritorio, mueve el ratón para simular la inclinación.</p>
+        </div>
+    </div>
+
+    <!-- Canvas principal -->
+    <canvas id="main-canvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+        <button id="calibrate-btn" title="Calibrar nivel cero">🎯 Calibrar</button>
+        <div id="angle-display">β 0.0° / γ 0.0°</div>
+    </div>
+
+    <script>
+        (function() {
+            // ============ DOM ELEMENTS ============
+            const canvas = document.getElementById('main-canvas');
+            const ctx = canvas.getContext('2d');
+            const overlay = document.getElementById('permission-overlay');
+            const startBtn = document.getElementById('start-btn');
+            const calibrateBtn = document.getElementById('calibrate-btn');
+            const angleDisplay = document.getElementById('angle-display');
+
+            // ============ ESTADO ============
+            let canvasWidth, canvasHeight;
+            let dpr = Math.min(window.devicePixelRatio || 1, 2); // Limitar DPR para rendimiento
+
+            // Sensores
+            let betaRaw = 0; // Inclinación frontal (-180 a 180)
+            let gammaRaw = 0; // Inclinación lateral (-90 a 90)
+            let betaOffset = 0;
+            let gammaOffset = 0;
+            let sensorsActive = false;
+            let isDesktop = false;
+
+            // Física de la esfera (en espacio normalizado de la superficie)
+            // nx: -1 (izquierda) a +1 (derecha)
+            // ny: 0 (cerca/bottom) a 1 (lejos/top)
+            let sphereNX = 0; // Posición actual X normalizada
+            let sphereNY = 0.35; // Posición actual Y normalizada (empieza cerca del centro)
+            let sphereVX = 0; // Velocidad en X
+            let sphereVY = 0; // Velocidad en Y
+
+            // Parámetros de física
+            const GRAVITY_SCALE = 2.8; // Sensibilidad a la inclinación
+            const FRICTION = 0.94; // Fricción por frame (0-1, menor = más fricción)
+            const BOUNCE_DAMPING = 0.45; // Pérdida de energía al rebotar
+            const BORDER_BOUNCE = 0.5; // Factor de rebote en bordes
+            const MAX_SPEED = 0.025; // Velocidad máxima normalizada por frame
+
+            // Tiempo
+            let lastTime = performance.now();
+            let dt = 0;
+
+            // Partículas de rebote
+            let particles = [];
+
+            // ============ DETECCIÓN DE DISPOSITIVO ============
+            function detectDevice() {
+                const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+                const hasOrientation = typeof DeviceOrientationEvent !== 'undefined';
+                // Consideramos desktop si no tiene touch y tiene mouse fino
+                const hasFinePointer = matchMedia('(pointer: fine)').matches;
+                const hasCoarsePointer = matchMedia('(pointer: coarse)').matches;
+
+                if (!hasTouch && hasFinePointer && !hasCoarsePointer) {
+                    isDesktop = true;
+                }
+                // Si tiene orientación pero también es desktop (algunos laptops tienen sensor)
+                if (hasOrientation && !hasTouch && hasFinePointer) {
+                    isDesktop = true; // Priorizar mouse en desktop aunque tenga sensor
+                }
+            }
+
+            // ============ PERMISO DE SENSORES (iOS 13+) ============
+            async function requestSensorPermission() {
+                if (typeof DeviceOrientationEvent !== 'undefined') {
+                    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                        try {
+                            const permission = await DeviceOrientationEvent.requestPermission();
+                            if (permission === 'granted') {
+                                enableSensors();
+                                return true;
+                            } else {
+                                console.warn('Permiso de orientación denegado');
+                                isDesktop = true; // Fallback a mouse
+                                return false;
+                            }
+                        } catch (err) {
+                            console.warn('Error al solicitar permiso:', err);
+                            isDesktop = true;
+                            return false;
+                        }
+                    } else {
+                        // Android u otros navegadores
+                        enableSensors();
+                        return true;
+                    }
+                } else {
+                    console.warn('DeviceOrientation no disponible');
+                    isDesktop = true;
+                    return false;
+                }
+            }
+
+            function enableSensors() {
+                window.addEventListener('deviceorientation', handleOrientation, true);
+                sensorsActive = true;
+                console.log('✅ Sensores de orientación activados');
+            }
+
+            function handleOrientation(event) {
+                if (event.beta !== null && event.gamma !== null) {
+                    betaRaw = event.beta;
+                    gammaRaw = event.gamma;
+                }
+            }
+
+            // ============ CALIBRACIÓN ============
+            function calibrate() {
+                betaOffset = betaRaw;
+                gammaOffset = gammaRaw;
+                // También reiniciamos la velocidad
+                sphereVX = 0;
+                sphereVY = 0;
+                // Pequeña animación de calibración
+                spawnCalibrationParticles();
+            }
+
+            function getCalibratedBeta() {
+                let b = betaRaw - betaOffset;
+                // Normalizar a rango razonable
+                while (b > 180) b -= 360;
+                while (b < -180) b += 360;
+                return b;
+            }
+
+            function getCalibratedGamma() {
+                let g = gammaRaw - gammaOffset;
+                // Limitar gamma a ±90
+                if (g > 90) g = 180 - g;
+                if (g < -90) g = -180 - g;
+                g = Math.max(-90, Math.min(90, g));
+                return g;
+            }
+
+            // ============ SIMULACIÓN PARA DESKTOP (MOUSE) ============
+            let mouseX = 0.5; // Normalizado 0-1
+            let mouseY = 0.5; // Normalizado 0-1
+            let mouseActive = false;
+
+            function setupDesktopFallback() {
+                document.addEventListener('mousemove', (e) => {
+                    mouseX = e.clientX / window.innerWidth;
+                    mouseY = e.clientY / window.innerHeight;
+                    mouseActive = true;
+                });
+                document.addEventListener('touchmove', (e) => {
+                    if (e.touches.length > 0) {
+                        mouseX = e.touches[0].clientX / window.innerWidth;
+                        mouseY = e.touches[0].clientY / window.innerHeight;
+                        mouseActive = true;
+                    }
+                }, { passive: true });
+                document.addEventListener('touchend', () => {
+                    mouseActive = false;
+                });
+                document.addEventListener('mouseleave', () => {
+                    mouseActive = false;
+                });
+                document.addEventListener('mouseenter', (e) => {
+                    mouseX = e.clientX / window.innerWidth;
+                    mouseY = e.clientY / window.innerHeight;
+                    mouseActive = true;
+                });
+            }
+
+            function getSimulatedOrientation() {
+                if (!mouseActive) {
+                    // Sin mouse, regresar lentamente a centro
+                    return { beta: 0, gamma: 0 };
+                }
+                // Mapear posición del mouse a ángulos simulados
+                // mouseX: 0 (izquierda) -> gamma +25, 0.5 (centro) -> 0, 1 (derecha) -> gamma -25
+                const simGamma = -(mouseX - 0.5) * 50; // ±25 grados
+                // mouseY: 0 (arriba) -> beta -25, 0.5 (centro) -> 0, 1 (abajo) -> beta +25
+                const simBeta = (mouseY - 0.5) * 50; // ±25 grados
+                return { beta: simBeta, gamma: simGamma };
+            }
+
+            // ============ PARTÍCULAS ============
+            function spawnParticles(x, y, count = 12) {
+                for (let i = 0; i < count; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 1.5 + Math.random() * 4;
+                    particles.push({
+                        x,
+                        y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed - Math.random() * 3,
+                        life: 1,
+                        decay: 0.02 + Math.random() * 0.05,
+                        size: 1.5 + Math.random() * 3,
+                        color: Math.random() < 0.5 ? '#f0c080' : '#ffd4a0',
+                    });
+                }
+                // Limitar partículas
+                if (particles.length > 80) {
+                    particles.splice(0, particles.length - 80);
+                }
+            }
+
+            function spawnCalibrationParticles() {
+                // Partículas en anillo alrededor del centro de la plataforma
+                const cx = canvasWidth / 2;
+                const cy = canvasHeight * 0.52;
+                for (let i = 0; i < 30; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 20 + Math.random() * 50;
+                    particles.push({
+                        x: cx + Math.cos(angle) * dist,
+                        y: cy + Math.sin(angle) * dist * 0.5,
+                        vx: Math.cos(angle) * 3,
+                        vy: Math.sin(angle) * 3 - 2,
+                        life: 1,
+                        decay: 0.03 + Math.random() * 0.04,
+                        size: 2 + Math.random() * 4,
+                        color: '#7ec8f8',
+                    });
+                }
+            }
+
+            function updateParticles(dt) {
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.x += p.vx * dt * 60;
+                    p.y += p.vy * dt * 60;
+                    p.vy += 0.08 * dt * 60; // Micro gravedad
+                    p.life -= p.decay * dt * 60;
+                    if (p.life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+            }
+
+            function drawParticles(ctx) {
+                for (const p of particles) {
+                    const alpha = p.life;
+                    ctx.fillStyle = p.color.replace(')', `, ${alpha})`).replace('rgb',
+                        'rgba');
+                    if (p.color.startsWith('#')) {
+                        ctx.fillStyle = p.color;
+                        ctx.globalAlpha = alpha;
+                    }
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+
+            // ============ REDIMENSIONAMIENTO ============
+            function resizeCanvas() {
+                canvasWidth = window.innerWidth;
+                canvasHeight = window.innerHeight;
+                dpr = Math.min(window.devicePixelRatio || 1, 2);
+                canvas.width = canvasWidth * dpr;
+                canvas.height = canvasHeight * dpr;
+                canvas.style.width = canvasWidth + 'px';
+                canvas.style.height = canvasHeight + 'px';
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.scale(dpr, dpr);
+            }
+
+            // ============ DIBUJO ============
+            function getPlatformGeometry() {
+                // Plataforma en perspectiva (trapecio)
+                const cx = canvasWidth / 2;
+                const topY = canvasHeight * 0.22;
+                const bottomY = canvasHeight * 0.76;
+                const topWidth = canvasWidth * 0.35;
+                const bottomWidth = canvasWidth * 0.72;
+
+                return {
+                    cx,
+                    topY,
+                    bottomY,
+                    topWidth,
+                    bottomWidth,
+                    topLeftX: cx - topWidth / 2,
+                    topRightX: cx + topWidth / 2,
+                    bottomLeftX: cx - bottomWidth / 2,
+                    bottomRightX: cx + bottomWidth / 2,
+                    height: bottomY - topY,
+                };
+            }
+
+            function getSphereCanvasPosition(nx, ny) {
+                const plat = getPlatformGeometry();
+                // ny: 0 = bottom (cerca), 1 = top (lejos)
+                const yCanvas = plat.bottomY - ny * plat.height;
+                const widthAtY = plat.bottomWidth - (plat.bottomWidth - plat.topWidth) * ny;
+                const xCanvas = plat.cx + nx * (widthAtY / 2);
+                // Radio de la esfera: más pequeño cuando está más lejos
+                const baseRadius = Math.min(canvasWidth, canvasHeight) * 0.065;
+                const radiusScale = 1 - ny * 0.35; // 100% cerca, 65% lejos
+                const radius = baseRadius * radiusScale;
+                return { x: xCanvas, y: yCanvas, radius, widthAtY, plat };
+            }
+
+            function drawBackground(ctx) {
+                // Fondo con gradiente sutil
+                const bgGrad = ctx.createRadialGradient(
+                    canvasWidth * 0.5, canvasHeight * 0.4, canvasHeight * 0.1,
+                    canvasWidth * 0.5, canvasHeight * 0.5, canvasHeight * 1.2
+                );
+                bgGrad.addColorStop(0, '#1a1a32');
+                bgGrad.addColorStop(0.5, '#121224');
+                bgGrad.addColorStop(1, '#080814');
+                ctx.fillStyle = bgGrad;
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+                // Textura sutil de puntos
+                ctx.fillStyle = 'rgba(255,255,255,0.008)';
+                const dotSpacing = 30;
+                for (let x = dotSpacing; x < canvasWidth; x += dotSpacing) {
+                    for (let y = dotSpacing; y < canvasHeight; y += dotSpacing) {
+                        ctx.beginPath();
+                        ctx.arc(x + (y % 60) * 0.3, y, 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+
+            function drawPlatform(ctx) {
+                const plat = getPlatformGeometry();
+                const { cx, topY, bottomY, topLeftX, topRightX, bottomLeftX, bottomRightX, topWidth, bottomWidth } =
+                plat;
+
+                // Sombra de la plataforma (proyectada hacia abajo)
+                ctx.save();
+                const shadowGrad = ctx.createLinearGradient(cx, bottomY, cx, bottomY + canvasHeight * 0.12);
+                shadowGrad.addColorStop(0, 'rgba(0,0,0,0.5)');
+                shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = shadowGrad;
+                ctx.beginPath();
+                ctx.moveTo(bottomLeftX - 15, bottomY + 8);
+                ctx.lineTo(bottomRightX + 15, bottomY + 8);
+                ctx.lineTo(bottomRightX + 40, bottomY + canvasHeight * 0.12);
+                ctx.lineTo(bottomLeftX - 40, bottomY + canvasHeight * 0.12);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+
+                // Cara principal de la plataforma (trapecio)
+                const surfaceGrad = ctx.createLinearGradient(cx, topY, cx, bottomY);
+                surfaceGrad.addColorStop(0, '#4a3424');
+                surfaceGrad.addColorStop(0.3, '#5e4030');
+                surfaceGrad.addColorStop(0.6, '#6b4a36');
+                surfaceGrad.addColorStop(1, '#3e2818');
+                ctx.fillStyle = surfaceGrad;
+                ctx.beginPath();
+                ctx.moveTo(topLeftX, topY);
+                ctx.lineTo(topRightX, topY);
+                ctx.lineTo(bottomRightX, bottomY);
+                ctx.lineTo(bottomLeftX, bottomY);
+                ctx.closePath();
+                ctx.fill();
+
+                // Borde superior (bisel)
+                ctx.strokeStyle = 'rgba(180,140,100,0.5)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(topLeftX, topY);
+                ctx.lineTo(topRightX, topY);
+                ctx.stroke();
+
+                // Borde inferior (bisel oscuro)
+                ctx.strokeStyle = 'rgba(20,10,0,0.6)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(bottomLeftX, bottomY);
+                ctx.lineTo(bottomRightX, bottomY);
+                ctx.stroke();
+
+                // Bordes laterales
+                ctx.strokeStyle = 'rgba(140,100,70,0.45)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(topLeftX, topY);
+                ctx.lineTo(bottomLeftX, bottomY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(topRightX, topY);
+                ctx.lineTo(bottomRightX, bottomY);
+                ctx.stroke();
+
+                // Grosor de la plataforma (canto frontal)
+                const thickness = canvasHeight * 0.025;
+                ctx.fillStyle = '#2a1808';
+                ctx.beginPath();
+                ctx.moveTo(bottomLeftX, bottomY);
+                ctx.lineTo(bottomRightX, bottomY);
+                ctx.lineTo(bottomRightX + 8, bottomY + thickness);
+                ctx.lineTo(bottomLeftX - 8, bottomY + thickness);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(60,30,10,0.5)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Líneas de cuadrícula en la plataforma
+                const numHLines = 7;
+                const numVLines = 5;
+                ctx.strokeStyle = 'rgba(255,220,180,0.12)';
+                ctx.lineWidth = 0.7;
+
+                // Líneas horizontales
+                for (let i = 1; i < numHLines; i++) {
+                    const t = i / numHLines; // 0 = top, 1 = bottom
+                    const yLine = topY + t * (bottomY - topY);
+                    const wAtY = topWidth + t * (bottomWidth - topWidth);
+                    const leftX = cx - wAtY / 2;
+                    const rightX = cx + wAtY / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(leftX, yLine);
+                    ctx.lineTo(rightX, yLine);
+                    ctx.stroke();
+                }
+
+                // Líneas verticales (convergen al punto de fuga)
+                const vanishingY = topY - canvasHeight * 0.25;
+                for (let i = 0; i <= numVLines; i++) {
+                    const t = i / numVLines;
+                    const topX = topLeftX + t * topWidth;
+                    const bottomX = bottomLeftX + t * bottomWidth;
+                    ctx.beginPath();
+                    ctx.moveTo(topX, topY);
+                    ctx.lineTo(bottomX, bottomY);
+                    ctx.stroke();
+                }
+
+                // Brillo sutil en el centro de la plataforma
+                const glowGrad = ctx.createRadialGradient(cx, (topY + bottomY) / 2, canvasHeight * 0.02,
+                    cx, (topY + bottomY) / 2, canvasHeight * 0.35);
+                glowGrad.addColorStop(0, 'rgba(255,220,180,0.08)');
+                glowGrad.addColorStop(1, 'rgba(255,220,180,0)');
+                ctx.fillStyle = glowGrad;
+                ctx.beginPath();
+                ctx.moveTo(topLeftX, topY);
+                ctx.lineTo(topRightX, topY);
+                ctx.lineTo(bottomRightX, bottomY);
+                ctx.lineTo(bottomLeftX, bottomY);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            function drawSphere(ctx, nx, ny) {
+                const { x, y, radius, widthAtY, plat } = getSphereCanvasPosition(nx, ny);
+
+                if (radius < 2) return;
+
+                // Sombra de la esfera sobre la plataforma
+                const shadowAlpha = 0.35 + ny * 0.2;
+                const shadowOffsetX = -radius * 0.2;
+                const shadowOffsetY = radius * 0.55;
+                const shadowGrad = ctx.createRadialGradient(
+                    x + shadowOffsetX, y + shadowOffsetY, radius * 0.08,
+                    x + shadowOffsetX, y + shadowOffsetY, radius * 0.9
+                );
+                shadowGrad.addColorStop(0, `rgba(0,0,0,${shadowAlpha + 0.15})`);
+                shadowGrad.addColorStop(0.6, `rgba(0,0,0,${shadowAlpha * 0.6})`);
+                shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = shadowGrad;
+                ctx.beginPath();
+                ctx.ellipse(x + shadowOffsetX, y + shadowOffsetY, radius * 0.85, radius * 0.28, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Esfera principal con gradiente radial 3D
+                const highlightX = x - radius * 0.35;
+                const highlightY = y - radius * 0.38;
+                const sphereGrad = ctx.createRadialGradient(
+                    highlightX, highlightY, radius * 0.05,
+                    x, y, radius
+                );
+                // Colores tipo canica de vidrio azul-verdosa
+                sphereGrad.addColorStop(0, '#ffffff');
+                sphereGrad.addColorStop(0.08, '#e8f8ff');
+                sphereGrad.addColorStop(0.2, '#5bc0e8');
+                sphereGrad.addColorStop(0.45, '#1a8ab5');
+                sphereGrad.addColorStop(0.7, '#0d5f80');
+                sphereGrad.addColorStop(0.9, '#063a50');
+                sphereGrad.addColorStop(1, '#021f2c');
+
+                ctx.fillStyle = sphereGrad;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Borde sutil
+                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                ctx.lineWidth = radius * 0.04;
+                ctx.stroke();
+
+                // Segundo highlight pequeño (reflejo secundario)
+                const hl2Grad = ctx.createRadialGradient(
+                    x - radius * 0.15, y - radius * 0.55, radius * 0.02,
+                    x - radius * 0.1, y - radius * 0.4, radius * 0.35
+                );
+                hl2Grad.addColorStop(0, 'rgba(255,255,255,0.7)');
+                hl2Grad.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+                hl2Grad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = hl2Grad;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                return { x, y, radius };
+            }
+
+            function drawBubbleLevel(ctx) {
+                // Indicador de nivel tipo burbuja en esquina inferior izquierda
+                const bubbleCX = canvasWidth * 0.12;
+                const bubbleCY = canvasHeight * 0.88;
+                const bubbleR = Math.min(canvasWidth, canvasHeight) * 0.07;
+                const bubbleInnerR = bubbleR * 0.25;
+
+                // Fondo del indicador
+                ctx.fillStyle = 'rgba(20,20,40,0.75)';
+                ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(bubbleCX, bubbleCY, bubbleR + 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Anillo exterior
+                ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(bubbleCX, bubbleCY, bubbleR, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Cruz de referencia
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 6]);
+                ctx.beginPath();
+                ctx.moveTo(bubbleCX - bubbleR * 0.8, bubbleCY);
+                ctx.lineTo(bubbleCX + bubbleR * 0.8, bubbleCY);
+                ctx.moveTo(bubbleCX, bubbleCY - bubbleR * 0.8);
+                ctx.lineTo(bubbleCX, bubbleCY + bubbleR * 0.8);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Círculo central de referencia
+                ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.arc(bubbleCX, bubbleCY, bubbleR * 0.2, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Posición de la burbuja según inclinación
+                const bAngle = getCalibratedBeta();
+                const gAngle = getCalibratedGamma();
+                const maxBubbleOffset = bubbleR * 0.6;
+                const bubbleX = bubbleCX + (gAngle / 35) * maxBubbleOffset;
+                const bubbleY = bubbleCY + (bAngle / 35) * maxBubbleOffset;
+
+                // Limitar burbuja al anillo
+                const dx = bubbleX - bubbleCX;
+                const dy = bubbleY - bubbleCY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const maxDist = bubbleR - bubbleInnerR - 4;
+                let finalBX = bubbleX;
+                let finalBY = bubbleY;
+                if (dist > maxDist) {
+                    finalBX = bubbleCX + (dx / dist) * maxDist;
+                    finalBY = bubbleCY + (dy / dist) * maxDist;
+                }
+
+                // Burbuja
+                const burbujaGrad = ctx.createRadialGradient(
+                    finalBX - bubbleInnerR * 0.3, finalBY - bubbleInnerR * 0.3, bubbleInnerR * 0.08,
+                    finalBX, finalBY, bubbleInnerR
+                );
+                burbujaGrad.addColorStop(0, '#ffffff');
+                burbujaGrad.addColorStop(0.4, '#a0e8ff');
+                burbujaGrad.addColorStop(0.8, '#3a90c0');
+                burbujaGrad.addColorStop(1, '#1a5070');
+                ctx.fillStyle = burbujaGrad;
+                ctx.beginPath();
+                ctx.arc(finalBX, finalBY, bubbleInnerR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            function drawDecorationText(ctx) {
+                // Pequeño texto decorativo
+                ctx.fillStyle = 'rgba(200,190,170,0.4)';
+                ctx.font = `${Math.min(canvasWidth, canvasHeight) * 0.025}px "Segoe UI", system-ui, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText('NIVEL DE ESFERA', canvasWidth / 2, canvasHeight * 0.12);
+            }
+
+            // ============ ACTUALIZACIÓN DE FÍSICA ============
+            function updatePhysics(dt) {
+                // Obtener ángulos de inclinación
+                let beta, gamma;
+                if (sensorsActive && !isDesktop) {
+                    beta = getCalibratedBeta();
+                    gamma = getCalibratedGamma();
+                } else if (isDesktop) {
+                    const sim = getSimulatedOrientation();
+                    beta = sim.beta;
+                    gamma = sim.gamma;
+                } else {
+                    beta = 0;
+                    gamma = 0;
+                }
+
+                // Actualizar display de ángulos
+                if (Math.abs(beta) > 0.05 || Math.abs(gamma) > 0.05 || Math.random() < 0.02) {
+                    angleDisplay.textContent =
+                        `β ${beta.toFixed(1)}° / γ ${gamma.toFixed(1)}°`;
+                }
+
+                // Mapear ángulos a aceleración en el espacio normalizado
+                // gamma: inclinación lateral -> aceleración en X (nx)
+                // beta: inclinación frontal -> aceleración en Y (ny)
+                // beta positivo (inclinar hacia ti) -> esfera rueda hacia ti (ny decrece)
+                const gammaRad = (gamma * Math.PI) / 180;
+                const betaRad = (beta * Math.PI) / 180;
+
+                const ax = Math.sin(gammaRad) * GRAVITY_SCALE;
+                const ay = -Math.sin(betaRad) * GRAVITY_SCALE; // Negativo: beta+ = ny decrece
+
+                // Integrar velocidad
+                sphereVX += ax * dt;
+                sphereVY += ay * dt;
+
+                // Fricción
+                sphereVX *= FRICTION;
+                sphereVY *= FRICTION;
+
+                // Limitar velocidad máxima
+                const speed = Math.sqrt(sphereVX * sphereVX + sphereVY * sphereVY);
+                if (speed > MAX_SPEED) {
+                    const scale = MAX_SPEED / speed;
+                    sphereVX *= scale;
+                    sphereVY *= scale;
+                }
+
+                // Integrar posición
+                const oldNX = sphereNX;
+                const oldNY = sphereNY;
+                sphereNX += sphereVX * dt * 60;
+                sphereNY += sphereVY * dt * 60;
+
+                // Límites y rebote en los bordes de la plataforma
+                // Los bordes en X dependen de ny (el trapecio)
+                // En espacio normalizado: nx va de -1 a 1, pero el límite real
+                // es que la esfera no debe salirse visualmente.
+                // Añadimos un margen basado en el radio de la esfera.
+                const margin = 0.04; // Margen normalizado
+
+                let bounced = false;
+                let bounceX = 0,
+                    bounceY = 0;
+
+                // Límite izquierdo
+                if (sphereNX < -1 + margin) {
+                    sphereNX = -1 + margin;
+                    sphereVX = Math.abs(sphereVX) * BOUNCE_DAMPING;
+                    bounced = true;
+                    bounceX = -1;
+                }
+                // Límite derecho
+                if (sphereNX > 1 - margin) {
+                    sphereNX = 1 - margin;
+                    sphereVX = -Math.abs(sphereVX) * BOUNCE_DAMPING;
+                    bounced = true;
+                    bounceX = 1;
+                }
+                // Límite inferior (cerca, ny=0)
+                if (sphereNY < margin) {
+                    sphereNY = margin;
+                    sphereVY = Math.abs(sphereVY) * BOUNCE_DAMPING;
+                    bounced = true;
+                    bounceY = 0;
+                }
+                // Límite superior (lejos, ny=1)
+                if (sphereNY > 1 - margin) {
+                    sphereNY = 1 - margin;
+                    sphereVY = -Math.abs(sphereVY) * BOUNCE_DAMPING;
+                    bounced = true;
+                    bounceY = 1;
+                }
+
+                // Generar partículas en rebote
+                if (bounced) {
+                    const pos = getSphereCanvasPosition(sphereNX, sphereNY);
+                    spawnParticles(pos.x, pos.y, 8);
+                }
+            }
+
+            // ============ LOOP DE ANIMACIÓN ============
+            function animate(timestamp) {
+                // Calcular dt en segundos, limitado para evitar saltos grandes
+                dt = (timestamp - lastTime) / 1000;
+                if (dt <= 0) dt = 0.016;
+                if (dt > 0.15) dt = 0.15; // Limitar a 150ms máximo
+                lastTime = timestamp;
+
+                // Actualizar física
+                updatePhysics(dt);
+
+                // Actualizar partículas
+                updateParticles(dt);
+
+                // Limpiar y dibujar
+                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                drawBackground(ctx);
+                drawPlatform(ctx);
+
+                // Dibujar partículas detrás de la esfera
+                drawParticles(ctx);
+
+                // Dibujar esfera
+                const sphereInfo = drawSphere(ctx, sphereNX, sphereNY);
+
+                // Dibujar indicador de burbuja
+                drawBubbleLevel(ctx);
+
+                // Texto decorativo
+                drawDecorationText(ctx);
+
+                // Si en desktop y no hay sensores, mostrar un pequeño indicador
+                if (isDesktop && !sensorsActive) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.font = `${Math.min(canvasWidth, canvasHeight) * 0.018}px "Segoe UI", system-ui, sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🖱️ Mueve el ratón para simular', canvasWidth / 2, canvasHeight * 0.93);
+                }
+
+                requestAnimationFrame(animate);
+            }
+
+            // ============ INICIALIZACIÓN ============
+            function init() {
+                detectDevice();
+                resizeCanvas();
+                setupDesktopFallback();
+
+                // Evento de redimensionamiento
+                window.addEventListener('resize', () => {
+                    resizeCanvas();
+                });
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(resizeCanvas, 300);
+                });
+
+                // Botón de calibrar
+                calibrateBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    calibrate();
+                });
+                calibrateBtn.addEventListener('touchend', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    calibrate();
+                });
+
+                // Iniciar loop de animación
+                lastTime = performance.now();
+                requestAnimationFrame(animate);
+
+                // Si es desktop, ocultar overlay inmediatamente
+                if (isDesktop) {
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                    }, 300);
+                }
+            }
+
+            // ============ BOTÓN DE INICIO ============
+            startBtn.addEventListener('click', async () => {
+                startBtn.textContent = '⏳ Activando...';
+                startBtn.disabled = true;
+
+                const success = await requestSensorPermission();
+
+                if (success || isDesktop) {
+                    startBtn.textContent = '✅ ¡Listo!';
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                    }, 400);
+                } else {
+                    startBtn.textContent = '⚠️ Sin sensor - Usar ratón';
+                    isDesktop = true;
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                    }, 600);
+                }
+
+                // Recalibrar al iniciar
+                setTimeout(calibrate, 200);
+            });
+
+            // También permitir tocar fuera para iniciar en iOS
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay && !startBtn.disabled) {
+                    startBtn.click();
+                }
+            });
+
+            // ============ ARRANQUE ============
+            init();
+
+            console.log('🔮 Nivel de Esfera - Plataforma Interactiva');
+            console.log('   Inclina tu móvil o mueve el ratón para jugar con la esfera.');
+            console.log('   Botón "Calibrar" para establecer el nivel cero.');
+            if (isDesktop) console.log('   🖱️ Modo escritorio: usa el ratón.');
+        })();
+    </script>
+</body>
+</html>
